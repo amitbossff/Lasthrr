@@ -20,11 +20,23 @@ app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-async def handler(request, context):
-    body = await request.json()
-    update = Update.de_json(body, app.bot)
-    await app.process_update(update)
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"ok": True})
+
+async def handler(request):
+    try:
+        body = request.body
+        data = json.loads(body)
+
+        update = Update.de_json(data, app.bot)
+        await app.initialize()
+        await app.process_update(update)
+
+        return {
+            "statusCode": 200,
+            "body": "ok"
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": str(e)
     }
