@@ -2,17 +2,32 @@ import os
 import json
 import urllib.parse
 import requests
+from http.server import BaseHTTPRequestHandler
 
-TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-def handler(request):
-    try:
-        raw = request.body.decode("utf-8")
-        data = json.loads(raw)
+def send_message(chat_id, text):
+    requests.post(
+        f"{API_URL}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "text": text
+        },
+        timeout=5
+    )
 
-        message = data.get("message")
+class handler(BaseHTTPRequestHandler):
+
+    def do_POST(self):
+        length = int(self.headers.get("content-length", 0))
+        body = json.loads(self.rfile.read(length))
+
+        message = body.get("message")
         if not message:
-            return "ok"
+            self.send_response(200)
+            self.end_headers()
+            return
 
         chat_id = message["chat"]["id"]
         text = message.get("text", "")
@@ -23,13 +38,12 @@ def handler(request):
             query = urllib.parse.quote(text)
             reply = f"https://www.youtube.com/results?search_query={query}&sp=EgIIAQ%3D%3D"
 
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        requests.post(url, json={
-            "chat_id": chat_id,
-            "text": reply
-        }, timeout=5)
+        send_message(chat_id, reply)
 
-        return "ok"
+        self.send_response(200)
+        self.end_headers()
 
-    except Exception as e:
-        return str(e)
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"YouTube bot running")
