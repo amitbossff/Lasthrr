@@ -1,42 +1,41 @@
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-import urllib.parse
 import os
 import json
+import urllib.parse
+import requests
 
 TOKEN = os.environ.get("BOT_TOKEN")
+TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Welcome to last hour bot send your search tag"
-    )
+def send_message(chat_id, text):
+    url = f"{TELEGRAM_API}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text
+    }
+    requests.post(url, json=payload)
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = urllib.parse.quote(update.message.text)
-    link = f"https://www.youtube.com/results?search_query={query}&sp=EgIIAQ%3D%3D"
-    await update.message.reply_text(link)
-
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
-
-async def handler(request):
+def handler(request):
     try:
-        body = request.body
-        data = json.loads(body)
+        body = json.loads(request.body)
 
-        update = Update.de_json(data, app.bot)
-        await app.initialize()
-        await app.process_update(update)
+        message = body.get("message")
+        if not message:
+            return {"statusCode": 200, "body": "no message"}
 
-        return {
-            "statusCode": 200,
-            "body": "ok"
-        }
+        chat_id = message["chat"]["id"]
+        text = message.get("text", "")
+
+        if text == "/start":
+            send_message(chat_id, "Welcome to last hour bot send your search tag")
+        else:
+            query = urllib.parse.quote(text)
+            link = f"https://www.youtube.com/results?search_query={query}&sp=EgIIAQ%3D%3D"
+            send_message(chat_id, link)
+
+        return {"statusCode": 200, "body": "ok"}
 
     except Exception as e:
         return {
             "statusCode": 500,
             "body": str(e)
-    }
+            }
